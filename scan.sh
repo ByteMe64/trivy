@@ -1,4 +1,3 @@
-cat > /opt/dtrack/scan.sh << 'EOF'
 #!/bin/sh
 
 echo "Installing Trivy..."
@@ -64,4 +63,3 @@ while true; do
   echo "=== Scan complete at $(date). Next run in ${SCAN_INTERVAL}s ==="
   sleep "$SCAN_INTERVAL"
 done
-EOF
