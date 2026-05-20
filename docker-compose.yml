@@ -50,19 +50,19 @@ services:
     restart: unless-stopped
 
   scanner:
-    image: docker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: dtrack-scanner
     depends_on:
       - apiserver
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - trivy-cache:/root/.cache
-      - ./scan.sh:/scan.sh:ro
     environment:
       DTRACK_URL: "http://apiserver:8080"
       DTRACK_API_KEY: ${DTRACK_API_KEY}
       SCAN_INTERVAL: ${SCAN_INTERVAL:-86400}
-    entrypoint: ["sh", "/scan.sh"]
     restart: unless-stopped
 
 volumes:
