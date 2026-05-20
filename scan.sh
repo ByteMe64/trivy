@@ -1,3 +1,4 @@
+cat > /opt/dtrack/scan.sh << 'EOF'
 #!/bin/sh
 
 echo "Installing Trivy..."
@@ -26,7 +27,7 @@ while true; do
       -H "Content-Type: application/json" \
       -X PUT \
       -d "{\"name\":\"$PROJECT_NAME\",\"version\":\"$PROJECT_VERSION\",\"classifier\":\"CONTAINER\"}" \
-      "$DTRACK_URL/api/v1/project")
+      "$DTRACK_URL/api/v1/project" || true)
 
     PROJECT_UUID=$(echo "$PROJECT_RESPONSE" | grep -o '"uuid":"[^"]*"' | head -1 | cut -d'"' -f4)
 
@@ -41,7 +42,7 @@ while true; do
       --format cyclonedx \
       --output /tmp/sbom.json \
       --quiet \
-      "$IMAGE"
+      "$IMAGE" || true
 
     if [ ! -s /tmp/sbom.json ]; then
       echo "  SBOM empty or failed — skipping"
@@ -53,7 +54,7 @@ while true; do
       -H "Content-Type: application/vnd.cyclonedx+json" \
       -X PUT \
       --data-binary @/tmp/sbom.json \
-      "$DTRACK_URL/api/v1/bom?project=$PROJECT_UUID"
+      "$DTRACK_URL/api/v1/bom?project=$PROJECT_UUID" || true
 
     echo "  Uploaded successfully"
     rm -f /tmp/sbom.json
@@ -63,3 +64,4 @@ while true; do
   echo "=== Scan complete at $(date). Next run in ${SCAN_INTERVAL}s ==="
   sleep "$SCAN_INTERVAL"
 done
+EOF
