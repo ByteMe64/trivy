@@ -1,0 +1,24 @@
+# ── Host ────────────────────────────────────────────
+HOST_IP=10.10.29.37
+
+# ── Ports ───────────────────────────────────────────
+FRONTEND_PORT=8080
+API_PORT=8081
+
+# ── Database ────────────────────────────────────────
+DB_NAME=dtrack
+DB_USER=dtrack
+DB_PASSWORD=69ga£6f9Aa69dw6a9w^
+
+# ── Dependency-Track ────────────────────────────────
+DTRACK_API_KEY=your-api-key-here
+
+# ── Image versions ──────────────────────────────────
+DTRACK_VERSION=latest
+POSTGRES_VERSION=17-alpine
+
+# ── Resources ───────────────────────────────────────
+API_MEMORY_LIMIT=4g
+
+# ── Scanner ─────────────────────────────────────────
+SCAN_INTERVAL=86400
