@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 echo "Installing Trivy..."
 apk add --no-cache curl
@@ -11,7 +10,7 @@ sleep 30
 while true; do
   echo "=== DTrack scanner starting at $(date) ==="
 
-  IMAGES=$(docker ps --format '{{.Image}}' && docker images --format '{{.Repository}}:{{.Tag}}' | grep -v '<none>')
+  IMAGES=$(docker ps --format '{{.Image}}'; docker images --format '{{.Repository}}:{{.Tag}}' | grep -v '<none>' || true)
   IMAGES=$(echo "$IMAGES" | sort -u)
 
   for IMAGE in $IMAGES; do
