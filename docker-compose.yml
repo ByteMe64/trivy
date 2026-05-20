@@ -1,19 +1,71 @@
-  services:
-    trivy:
-      image: aquasec/trivy:latest
-      container_name: trivy
-      restart: unless-stopped
-      command: server --listen 0.0.0.0:4954
-      ports:
-        - "4954:4954"
-      volumes:
-        - trivy-cache:/root/.cache/trivy
-        - /var/run/docker.sock:/var/run/docker.sock:ro
-      healthcheck:
-        test: ["CMD", "wget", "--spider", "-q", "http://localhost:4954/healthz"]
-        interval: 30s
-        timeout: 5s
-        retries: 3
-  
-  volumes:
-    trivy-cache:
+services:
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-17-alpine}
+    container_name: dtrack-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  apiserver:
+    image: dependencytrack/apiserver:${DTRACK_VERSION:-latest}
+    container_name: dtrack-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ALPINE_DATABASE_MODE: external
+      ALPINE_DATABASE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      ALPINE_DATABASE_DRIVER: org.postgresql.Driver
+      ALPINE_DATABASE_USERNAME: ${DB_USER}
+      ALPINE_DATABASE_PASSWORD: ${DB_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-4g}
+    ports:
+      - "${API_PORT:-8081}:8080"
+    volumes:
+      - dtrack-data:/data
+    restart: unless-stopped
+
+  frontend:
+    image: dependencytrack/frontend:${DTRACK_VERSION:-latest}
+    container_name: dtrack-frontend
+    depends_on:
+      - apiserver
+    environment:
+      API_BASE_URL: "http://${HOST_IP}:${API_PORT:-8081}"
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  scanner:
+    image: docker:latest
+    container_name: dtrack-scanner
+    depends_on:
+      - apiserver
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - trivy-cache:/root/.cache
+      - ./scan.sh:/scan.sh:ro
+    environment:
+      DTRACK_URL: "http://apiserver:8080"
+      DTRACK_API_KEY: ${DTRACK_API_KEY}
+      SCAN_INTERVAL: ${SCAN_INTERVAL:-86400}
+    entrypoint: ["sh", "/scan.sh"]
+    restart: unless-stopped
+
+volumes:
+  dtrack-data:
+  postgres-data:
+  trivy-cache:
