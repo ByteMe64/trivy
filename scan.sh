@@ -21,17 +21,35 @@ while true; do
     PROJECT_VERSION=$(echo "$IMAGE" | cut -s -d: -f2)
     PROJECT_VERSION="${PROJECT_VERSION:-latest}"
 
-    PROJECT_RESPONSE=$(curl -sf \
+    # Try to create project
+    HTTP_CODE=$(curl -s -o /tmp/project_response.json -w "%{http_code}" \
       -H "X-Api-Key: $DTRACK_API_KEY" \
       -H "Content-Type: application/json" \
       -X PUT \
       -d "{\"name\":\"$PROJECT_NAME\",\"version\":\"$PROJECT_VERSION\",\"classifier\":\"CONTAINER\"}" \
-      "$DTRACK_URL/api/v1/project" || true)
+      "$DTRACK_URL/api/v1/project")
 
-    PROJECT_UUID=$(echo "$PROJECT_RESPONSE" | grep -o '"uuid":"[^"]*"' | head -1 | cut -d'"' -f4)
+    echo "  Project create HTTP: $HTTP_CODE"
+
+    if [ "$HTTP_CODE" = "201" ]; then
+      # Created successfully
+      PROJECT_UUID=$(grep -o '"uuid":"[^"]*"' /tmp/project_response.json | head -1 | cut -d'"' -f4)
+    elif [ "$HTTP_CODE" = "409" ]; then
+      # Already exists — look it up by name and version
+      echo "  Project exists, looking up UUID..."
+      curl -s -o /tmp/project_response.json \
+        -H "X-Api-Key: $DTRACK_API_KEY" \
+        "$DTRACK_URL/api/v1/project/lookup?name=$PROJECT_NAME&version=$PROJECT_VERSION"
+      PROJECT_UUID=$(grep -o '"uuid":"[^"]*"' /tmp/project_response.json | head -1 | cut -d'"' -f4)
+    else
+      echo "  Unexpected response: $HTTP_CODE"
+      cat /tmp/project_response.json
+      continue
+    fi
 
     if [ -z "$PROJECT_UUID" ]; then
-      echo "  Could not create/find project for $IMAGE — skipping"
+      echo "  Could not get project UUID — skipping"
+      cat /tmp/project_response.json
       continue
     fi
 
@@ -48,12 +66,12 @@ while true; do
       continue
     fi
 
-    curl -sf \
+    curl -s -o /dev/null -w "  Upload HTTP: %{http_code}\n" \
       -H "X-Api-Key: $DTRACK_API_KEY" \
       -H "Content-Type: application/vnd.cyclonedx+json" \
       -X PUT \
       --data-binary @/tmp/sbom.json \
-      "$DTRACK_URL/api/v1/bom?project=$PROJECT_UUID" || true
+      "$DTRACK_URL/api/v1/bom?project=$PROJECT_UUID"
 
     echo "  Uploaded successfully"
     rm -f /tmp/sbom.json
